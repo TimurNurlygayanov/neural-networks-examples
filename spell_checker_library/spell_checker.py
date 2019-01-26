@@ -23,94 +23,87 @@ import pymorphy2
 from tqdm import tqdm
 
 
-SPEELLCHECK_MODEL = None
-SPEELLCHECK_WORDS_DICT = []
-SPEELLCHECK_MODEL_NAME = 'ru_spellcheck.model'
-IMPORTANT_TAGS = {'NOUN', 'ADJF', 'ADJS', 'VERB', 'INFN',
-                  'PRTF', 'PRTS', 'GRND'}
+class Checker(object):
 
+    model = None
+    words_dict = []
+    model_name = 'ru_spellcheck.model'
+    tags = {'NOUN', 'ADJF', 'ADJS', 'VERB', 'INFN',
+            'PRTF', 'PRTS', 'GRND'}
 
-def check_word_in_dict(word):
-    """ Check only one word in the dict. """
+    def check_word_in_dict(self, word):
+        """ Check only one word in the dict. """
 
-    global SPEELLCHECK_WORDS_DICT
+        if not self.words_dict:
+            # Download Russian dictionary:
+            russian_words_link = ('https://raw.githubusercontent.com/danakt/'
+                                  'russian-words/master/russian.txt')
+            res = requests.get(russian_words_link)
+            res.encoding = 'windows-1251'
+            self.words_dict = res.text.split('\n')
 
-    if not SPEELLCHECK_WORDS_DICT:
-        # Download Russian dictionary:
-        russian_words_link = ('https://raw.githubusercontent.com/danakt/'
-                              'russian-words/master/russian.txt')
-        res = requests.get(russian_words_link)
-        res.encoding = 'windows-1251'
-        SPEELLCHECK_WORDS_DICT = res.text.split('\n')
+            self.words_dict = [str(w).strip() for w in self.words_dict]
 
-        SPEELLCHECK_WORDS_DICT = [str(w).strip() for w in SPEELLCHECK_WORDS_DICT]
+        return word in self.words_dict
 
-    return word in SPEELLCHECK_WORDS_DICT
+    def text_to_word_sequence(self, text):
+        """ Makes the array of words from the text. """
 
+        text = re.sub("[!@#$%^&*()[]{};:,./<>?\|`~-=_+ ]", '\n', text)
 
-def text_to_word_sequence(text):
-    """ Makes the array of words from the text. """
+        result = [str(word).strip() for word in text.split('\n') if word]
 
-    text = re.sub("[!@#$%^&*()[]{};:,./<>?\|`~-=_+ ]", '\n', text)
+        return result
 
-    result = [str(word).strip() for word in text.split('\n') if word]
+    def learn(self, text):
+        """ Learn sentences patterns based on some text. """
 
-    return result
+        sentences = []
 
+        # Normalization
+        for line in text.split('\n'):
+            sentences.append(self.text_to_word_sequence(line))
 
-def learn(text):
-    """ Learn sentences patterns based on some text. """
+        morph = pymorphy2.MorphAnalyzer()
 
-    sentences = []
+        for i in tqdm(range(len(sentences))):
 
-    # Normalization
-    for line in text.split('\n'):
-        sentences.append(text_to_word_sequence(line))
+            word = sentences[i]
+            sentence = []
 
-    morph = pymorphy2.MorphAnalyzer()
+            p = morph.parse(word)[0]
+            if p.tag.POS in self.tags:
+                sentence.append(p.normal_form)
 
-    for i in tqdm(range(len(sentences))):
+            sentences[i] = sentence
+        sentences = [x for x in sentences if x]
 
-        word = sentences[i]
-        sentence = []
+        # Training the model (it can take 2+ hours):
+        model = gensim.models.FastText(sentences, size=300,
+                                       window=4, min_count=3, sg=1,
+                                       iter=100, min_n=1, max_n=8)
+        model.init_sims(replace=True)
 
-        p = morph.parse(word)[0]
-        if p.tag.POS in IMPORTANT_TAGS:
-            sentence.append(p.normal_form)
+        # Save model to the disk (it will take 200+ Mb on disk)
+        model.save(self.model_name)
 
-        sentences[i] = sentence
-    sentences = [x for x in sentences if x]
+    def spellcheck(self, text):
+        """ Correct the text. """
 
-    # Training the model (it can take 2+ hours):
-    model = gensim.models.FastText(sentences, size=300,
-                                   window=4, min_count=3, sg=1,
-                                   iter=100, min_n=1, max_n=8)
-    model.init_sims(replace=True)
+        words = self.text_to_word_sequence(text)
 
-    # Save model to the disk (it will take 200+ Mb on disk)
-    print('Saving model to the disk...')
-    model.save(SPEELLCHECK_MODEL_NAME)
+        if not self.model:
+            try:
+                # Load model from file:
+                model = gensim.models.FastText.load(self.model_name)
+                model.init_sims(replace=True)
+                self.model = model.wv
+            except:
+                print('Call "learn" first to teach the spellchecker!')
 
+        for word in words:
+            if not self.check_word_in_dict(word):
+                correct_words = self.model.most_similar(positive=[word])
+                text = text.replace(word, correct_words[0])
 
-def spellcheck(text):
-    """ Correct the text. """
-
-    global SPEELLCHECK_MODEL
-
-    words = text_to_word_sequence(text)
-
-    if not SPEELLCHECK_MODEL:
-        try:
-            # Load model from file:
-            model = gensim.models.FastText.load(SPEELLCHECK_MODEL_NAME)
-            model.init_sims(replace=True)
-            SPEELLCHECK_MODEL = model.wv
-        except:
-            print('Call "learn" first to teach the spellchecker!')
-
-    for word in words:
-        if not check_word_in_dict(word):
-            correct_words = SPEELLCHECK_MODEL.most_similar(positive=[word])
-            text = text.replace(word, correct_words[0])
-
-    return text
+        return text

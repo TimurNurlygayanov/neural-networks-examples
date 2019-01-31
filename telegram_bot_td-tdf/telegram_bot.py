@@ -27,6 +27,8 @@ from sklearn.cluster import KMeans
 import matplotlib.pyplot as plt
 from sklearn.manifold import MDS
 
+from gensim.models import Word2Vec
+
 
 from spell_checker_library.spell_checker import Checker
 
@@ -75,7 +77,7 @@ for q in ALL_MESSAGES:
 print('Total messages: {0}'.format(len(ALL_MESSAGES)))
 print('Questions found: {0}'.format(len(ALL_QUESTIONS)))
 
-
+"""
 my_checker.learn('\n'.join(ALL_MESSAGES))
 
 
@@ -83,29 +85,30 @@ for i, q in enumerate(ALL_QUESTIONS):
     q = str(q).strip()
     q2 = my_checker.spellcheck(q)
 
-    """
-    if q2 != q:
-        print(colored(q, 'red'))
-        print(colored(q2, 'green'))
-
-        print('\n --- \n\n')
-    """
-
     ALL_QUESTIONS[i] = q2
+"""
+
 
 # print(my_checker.learned_words_dict)
 # exit(0)
 
-print(len(ALL_QUESTIONS))
 ALL_QUESTIONS = [q for q in ALL_QUESTIONS if ' ' in q]
-print(len(ALL_QUESTIONS))
-print('*'*20)
+
 
 titles = ALL_QUESTIONS
 synopses = ALL_QUESTIONS
 
 stop_words = nltk.corpus.stopwords.words('russian')
 stemmer = SnowballStemmer('russian')
+
+
+stop_words += ['бол', 'больш', 'будт', 'быт', 'вед', 'впроч', 'всег', 'всегд',
+               'даж', 'друг', 'е', 'ег', 'ем', 'есл', 'ест', 'ещ', 'зач', 'зде',
+               'ил', 'иногд', 'когд', 'конечн', 'куд', 'лучш', 'межд', 'мен',
+               'мног', 'мо', 'можн', 'нег', 'нельз', 'нибуд', 'никогд', 'нич',
+               'опя', 'посл', 'пот', 'почт', 'разв', 'сво', 'себ', 'совс', 'теб',
+               'тепер', 'тог', 'тогд', 'тож', 'тольк', 'хорош', 'хот', 'чег',
+               'чут', 'эт']
 
 
 def tokenize_only(text, correct_symbols='[А-Яа-яЁё]'):
@@ -165,9 +168,9 @@ dist = 1 - cosine_similarity(tfidf_matrix)
 """
 
 
+
 from sklearn.feature_extraction.text import CountVectorizer
-vectorizer = CountVectorizer(tokenizer=tokenize_and_stem,
-                             stop_words=stop_words)
+vectorizer = CountVectorizer(tokenizer=tokenize_and_stem)
 
 X = vectorizer.fit_transform(synopses)
 
@@ -179,11 +182,14 @@ km.fit(X)
 dist = 1 - cosine_similarity(X)
 
 
+
+"""
 print('Similar questions:')
 for i in ALL_QUESTIONS:
     predict_me = vectorizer.transform([i])
     if km.predict(predict_me) == 2:
         print(i + '\n=\n\n')
+"""
 
 
 clusters = km.labels_.tolist()

@@ -27,7 +27,7 @@ model.train(
 sentence1 = 'Obama speaks to the media in Illinois'.lower().split()
 sentence2 = 'The president greets the press in Chicago'.lower().split()
 sentence3 = 'My dog is the the best boy ever'.lower().split()
-sentence4 = 'My cat hates me. She thinks she is a god'.lower().split()
+sentence4 = 'This cat hates me. She thinks she is a god'.lower().split()
 
 stopwords = stopwords.words('english')
 sentence1 = [w for w in sentence1 if w not in stopwords]

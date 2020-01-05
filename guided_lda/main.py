@@ -42,23 +42,6 @@ def preprocess(text):
             if tok not in stop_words]
 
 
-def viz_model(model, modeldict):
-    ntopics = model.num_topics
-
-    # top words associated with the resulting topics
-    topics = ['Topic {}: {}'.format(t,modeldict[w]) for t in range(ntopics)
-              for w,p in model.get_topic_terms(t, topn=1)]
-    terms = [modeldict[w] for w in modeldict.keys()]
-
-    fig, ax = plt.subplots()
-    ax.imshow(model.get_topics())  # plot the numpy matrix
-    ax.set_xticks(modeldict.keys())  # set up the x-axis
-    ax.set_xticklabels(terms, rotation=90)
-    ax.set_yticks(np.arange(ntopics))  # set up the y-axis
-    ax.set_yticklabels(topics)
-    plt.show()
-
-
 def test_eta(eta, dictionary, ntopics, print_topics=True, print_dist=True):
     np.random.seed(42) # set the random seed for repeatability
 
@@ -72,8 +55,6 @@ def test_eta(eta, dictionary, ntopics, print_topics=True, print_dist=True):
             eval_every=-1, update_every=1,
             passes=150, alpha='auto', per_word_topics=True)
 
-    # visualize the model term topics
-    viz_model(model, dictionary)
     print('Perplexity: {:.2f}'.format(model.log_perplexity(bow)))
     if print_topics:
         # display the top terms for each topic
@@ -82,9 +63,9 @@ def test_eta(eta, dictionary, ntopics, print_topics=True, print_dist=True):
                                                 for w,p in model.get_topic_terms(topic, topn=3)]))
     if print_dist:
         # display the topic probabilities for each document
-        for line,bag in zip(txt,bow):
+        for line, bag in zip(txt, bow):
             doc_topics = ['({}, {:.1%})'.format(topic, prob)
-                          for topic,prob in model.get_document_topics(bag)]
+                          for topic, prob in model.get_document_topics(bag)]
             print('{} {}'.format(line, doc_topics))
 
     return model
